@@ -22,12 +22,14 @@ export interface ChatMessage {
 
 export interface GroundingChunk {
   web?: {
-    uri: string;
-    title: string;
+    // FIX: Made uri and title optional to match @google/genai's GroundingChunk type.
+    uri?: string;
+    title?: string;
   };
   maps?: {
-    uri: string;
-    title: string;
+    // FIX: Made uri and title optional to match @google/genai's GroundingChunk type.
+    uri?: string;
+    title?: string;
   };
 }
 

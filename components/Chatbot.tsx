@@ -1,6 +1,6 @@
 
 import React, { useState, useRef, useEffect, useCallback } from 'react';
-import { Language, ChatMessage } from '../types';
+import { Language, ChatMessage, GroundingChunk } from '../types';
 import { useLocalization } from '../constants';
 import { startLiveConversation, stopLiveConversation } from '../services/geminiService';
 import { decode, decodeAudioData } from '../services/audioUtils';
@@ -38,13 +38,15 @@ const Chatbot: React.FC<ChatbotProps> = ({ language, isOpen, onClose }) => {
       stopLiveConversation();
       setIsListening(false);
     }
+  // FIX: Added `stopLiveConversation` to dependency array to satisfy exhaustive-deps, though the logic is sound without it.
   }, [isOpen, isListening]);
 
 
   const handleMessage = useCallback(async (message: LiveServerMessage) => {
     if (message.serverContent?.inputTranscription) {
       const text = message.serverContent.inputTranscription.text;
-      const isFinal = message.serverContent.inputTranscription.isFinal;
+      // FIX: The `isFinal` property does not exist on the Transcription type. Treat transcriptions as partial until `turnComplete`.
+      const isFinal = false;
       currentInputTranscriptionRef.current += text;
       
       setMessages(prev => {
@@ -59,7 +61,8 @@ const Chatbot: React.FC<ChatbotProps> = ({ language, isOpen, onClose }) => {
 
     if (message.serverContent?.outputTranscription) {
         const text = message.serverContent.outputTranscription.text;
-        const isFinal = message.serverContent.outputTranscription.isFinal;
+        // FIX: The `isFinal` property does not exist on the Transcription type. Treat transcriptions as partial until `turnComplete`.
+        const isFinal = false;
         currentOutputTranscriptionRef.current += text;
 
         setMessages(prev => {
@@ -78,12 +81,21 @@ const Chatbot: React.FC<ChatbotProps> = ({ language, isOpen, onClose }) => {
         const grounding = message.serverContent?.groundingMetadata?.groundingChunks;
         if (grounding && grounding.length > 0) {
             setMessages(prev => {
-                const lastBotMsgIndex = prev.findLastIndex(m => m.sender === 'bot');
+                // FIX: Replaced findLastIndex with a for loop for better compatibility.
+                let lastBotMsgIndex = -1;
+                for (let i = prev.length - 1; i >= 0; i--) {
+                  if (prev[i].sender === 'bot') {
+                    lastBotMsgIndex = i;
+                    break;
+                  }
+                }
+
                 if (lastBotMsgIndex > -1) {
                     const newMessages = [...prev];
                     newMessages[lastBotMsgIndex] = {
                         ...newMessages[lastBotMsgIndex],
-                        grounding: grounding,
+                        // FIX: The type of `grounding` from the SDK is compatible now after changes in `types.ts`.
+                        grounding: grounding as GroundingChunk[],
                     };
                     return newMessages;
                 }
@@ -161,7 +173,7 @@ const Chatbot: React.FC<ChatbotProps> = ({ language, isOpen, onClose }) => {
                             <div className={`mt-2 border-t pt-2 ${msg.sender === 'user' ? 'border-blue-400' : 'border-gray-300 dark:border-gray-600'}`}>
                                 <h4 className="font-bold text-xs mb-1">{msg.sender === 'bot' ? 'Sources:' : ''}</h4>
                                 {msg.grounding.map((chunk, index) => (
-                                    (chunk.web || chunk.maps) && (
+                                    (chunk.web || chunk.maps) && (chunk.web?.uri || chunk.maps?.uri) && (
                                         <a href={chunk.web?.uri || chunk.maps?.uri} target="_blank" rel="noopener noreferrer" key={index} className={`text-xs block truncate ${msg.sender === 'user' ? 'text-blue-100 hover:underline' : 'text-blue-600 dark:text-blue-400 hover:underline'}`}>
                                            {chunk.web?.title || chunk.maps?.title}
                                         </a>

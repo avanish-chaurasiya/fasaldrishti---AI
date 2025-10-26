@@ -1,5 +1,6 @@
 
-import { GoogleGenAI, GenerateContentResponse, Modality, Blob, LiveSession, LiveServerMessage } from "@google/genai";
+// FIX: Removed LiveSession as it's not an exported member.
+import { GoogleGenAI, GenerateContentResponse, Modality, Blob, LiveServerMessage } from "@google/genai";
 import { GroundingChunk } from '../types';
 import { encode, decode, decodeAudioData } from './audioUtils';
 
@@ -71,7 +72,8 @@ export const analyzeImage = async (base64Image: string, mimeType: string, prompt
 
 
 // Live Conversation
-let liveSessionPromise: Promise<LiveSession> | null = null;
+// FIX: `LiveSession` type is not exported, using `any` for the promise.
+let liveSessionPromise: any = null;
 let scriptProcessor: ScriptProcessorNode | null = null;
 let audioSource: MediaStreamAudioSourceNode | null = null;
 let inputAudioContext: AudioContext | null = null;
