@@ -1,4 +1,3 @@
-
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { Language, ChatMessage, GroundingChunk } from '../types';
 import { useLocalization } from '../constants';
@@ -18,7 +17,8 @@ const Chatbot: React.FC<ChatbotProps> = ({ language, isOpen, onClose }) => {
   const [isListening, setIsListening] = useState(false);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   
-  const outputAudioContextRef = useRef<AudioContext>();
+  // FIX: Explicitly initialize useRef with `undefined` to fix "Expected 1 arguments, but got 0" error.
+  const outputAudioContextRef = useRef<AudioContext | undefined>(undefined);
   const nextStartTimeRef = useRef(0);
   const sourcesRef = useRef<Set<AudioBufferSourceNode>>(new Set());
   
@@ -32,14 +32,16 @@ const Chatbot: React.FC<ChatbotProps> = ({ language, isOpen, onClose }) => {
     }
   }, [messages]);
   
+  // FIX: Replaced the conditional effect with a proper cleanup function.
+  // This ensures that the live conversation is stopped and resources are released
+  // when the component unmounts (e.g., when the chatbot is closed).
   useEffect(() => {
-    // Cleanup on close
-    if (!isOpen && isListening) {
+    return () => {
+      // The stopLiveConversation function is idempotent, so it's safe to call
+      // even if a conversation was not active.
       stopLiveConversation();
-      setIsListening(false);
-    }
-  // FIX: Added `stopLiveConversation` to dependency array to satisfy exhaustive-deps, though the logic is sound without it.
-  }, [isOpen, isListening]);
+    };
+  }, []);
 
 
   const handleMessage = useCallback(async (message: LiveServerMessage) => {
