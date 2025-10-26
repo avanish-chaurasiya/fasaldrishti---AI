@@ -1,21 +1,26 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Language, Pin, RegionalClaim, CropDamage, WeatherAlert } from '../types';
 import { useLocalization } from '../constants';
 import { PinIcon, ChartBarIcon } from './Icons';
+import ReactDOMServer from 'react-dom/server';
 
-// Mock data to simulate backend data
+// FIX: Declare the Leaflet global 'L' to resolve TypeScript errors.
+declare var L: any;
+
+
+// Mock data to simulate backend data - PINS MOVED TO UTTAR PRADESH
 const mockPins: Pin[] = [
-  { id: 1, farmerId: 'FARMER001', location: { lat: 28.6139, lng: 77.2090 }, status: 'damage', analysis: { damageType: 'Pest Infestation', details: 'Severe aphid attack detected.' }, imageUrl: 'https://placehold.co/400x300/ff0000/ffffff?text=Damaged+Crop' },
-  { id: 2, farmerId: 'FARMER002', location: { lat: 28.62, lng: 77.22 }, status: 'stress', analysis: { damageType: 'Nutrient Deficiency', details: 'Nitrogen deficiency observed.' }, imageUrl: 'https://placehold.co/400x300/ffff00/000000?text=Stressed+Crop' },
-  { id: 3, farmerId: 'FARMER003', location: { lat: 28.60, lng: 77.21 }, status: 'healthy', analysis: { damageType: 'N/A', details: 'Crop is healthy.' }, imageUrl: 'https://placehold.co/400x300/00ff00/ffffff?text=Healthy+Crop' },
-  { id: 4, farmerId: 'FARMER004', location: { lat: 28.615, lng: 77.19 }, status: 'damage', analysis: { damageType: 'Fungal Infection', details: 'Powdery mildew detected.' }, imageUrl: 'https://placehold.co/400x300/ff0000/ffffff?text=Damaged+Crop' },
+  { id: 1, farmerId: 'UP_FARMER_GKP01', location: { lat: 26.761, lng: 83.374 }, status: 'damage', analysis: { damageType: 'Pest Infestation', details: 'Severe aphid attack detected.' }, imageUrl: 'https://placehold.co/400x300/ff0000/ffffff?text=Damaged+Crop' },
+  { id: 2, farmerId: 'UP_FARMER_GKP02', location: { lat: 26.759, lng: 83.372 }, status: 'stress', analysis: { damageType: 'Nutrient Deficiency', details: 'Nitrogen deficiency observed.' }, imageUrl: 'https://placehold.co/400x300/ffff00/000000?text=Stressed+Crop' },
+  { id: 3, farmerId: 'UP_FARMER_GKP03', location: { lat: 26.762, lng: 83.371 }, status: 'healthy', analysis: { damageType: 'N/A', details: 'Crop is healthy.' }, imageUrl: 'https://placehold.co/400x300/00ff00/ffffff?text=Healthy+Crop' },
+  { id: 4, farmerId: 'UP_FARMER_GKP04', location: { lat: 26.760, lng: 83.375 }, status: 'damage', analysis: { damageType: 'Fungal Infection', details: 'Powdery mildew detected.' }, imageUrl: 'https://placehold.co/400x300/ff0000/ffffff?text=Damaged+Crop' },
 ];
 
 const mockRegionalClaims: RegionalClaim[] = [
-  { region: 'North', settled: 1200, pending: 350 },
-  { region: 'South', settled: 950, pending: 200 },
-  { region: 'East', settled: 1500, pending: 500 },
-  { region: 'West', settled: 1100, pending: 250 },
+  { region: 'Gorakhpur Division', settled: 1200, pending: 350 },
+  { region: 'Basti Division', settled: 950, pending: 200 },
+  { region: 'Devipatan Division', settled: 1500, pending: 500 },
+  { region: 'Ayodhya Division', settled: 1100, pending: 250 },
 ];
 
 const mockCropDamage: CropDamage[] = [
@@ -34,6 +39,60 @@ const mockWeatherAlerts: WeatherAlert[] = [
 const AuthorityDashboard: React.FC<{ language: Language }> = ({ language }) => {
   const t = useLocalization(language);
   const [selectedPin, setSelectedPin] = useState<Pin | null>(mockPins[0]);
+  // FIX: Replaced `L.Map` with `any` to resolve "Cannot find namespace 'L'" error because `L` is declared as `any`.
+  const mapRef = useRef<any | null>(null);
+  const mapContainerRef = useRef<HTMLDivElement>(null);
+  // FIX: Replaced `L.LayerGroup` with `any` to resolve "Cannot find namespace 'L'" error because `L` is declared as `any`.
+  const markersRef = useRef<any | null>(null);
+
+  useEffect(() => {
+    if (mapContainerRef.current && !mapRef.current) {
+      // Centered on Gorakhpur with a closer zoom
+      const map = L.map(mapContainerRef.current).setView([26.7606, 83.3732], 13); 
+
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+      }).addTo(map);
+
+      mapRef.current = map;
+      markersRef.current = L.layerGroup().addTo(map);
+    }
+
+    return () => {
+      if (mapRef.current) {
+        mapRef.current.remove();
+        mapRef.current = null;
+      }
+    };
+  }, []);
+
+  useEffect(() => {
+    if (markersRef.current && L) {
+      markersRef.current.clearLayers();
+      mockPins.forEach(pin => {
+        const iconHtml = ReactDOMServer.renderToString(
+          <PinIcon status={pin.status} className={`w-10 h-10 drop-shadow-lg transition-transform hover:scale-125 ${selectedPin?.id === pin.id ? 'scale-125' : ''}`} />
+        );
+        
+        const customIcon = L.divIcon({
+          html: iconHtml,
+          className: '', // important to reset default leaflet styles
+          iconSize: [40, 40],
+          iconAnchor: [20, 40],
+        });
+
+        const marker = L.marker([pin.location.lat, pin.location.lng], { icon: customIcon })
+          .addTo(markersRef.current!);
+          
+        marker.on('click', () => {
+          setSelectedPin(pin);
+          mapRef.current?.setView([pin.location.lat, pin.location.lng], 14);
+        });
+      });
+    }
+    // FIX: Removed 'L' from dependency array as it is a stable global variable.
+  }, [selectedPin]);
+
 
   const totalRedAlerts = mockPins.filter(p => p.status === 'damage').length;
   const pendingVerifications = mockRegionalClaims.reduce((sum, claim) => sum + claim.pending, 0);
@@ -70,20 +129,8 @@ const AuthorityDashboard: React.FC<{ language: Language }> = ({ language }) => {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         <div className="lg:col-span-2 bg-white dark:bg-gray-800 p-6 rounded-xl shadow-lg">
           <h2 className="text-xl font-bold mb-4 text-gray-800 dark:text-gray-100">Live Damage Map</h2>
-          <div className="relative bg-gray-200 dark:bg-gray-700 h-96 rounded-lg overflow-hidden">
-            {/* A simplified map representation */}
-            <div className="absolute inset-0 bg-cover bg-center opacity-40" style={{backgroundImage: "url('https://www.researchgate.net/profile/Hayder-Dib-Kadhem/publication/342129338/figure/fig1/AS:902319985229825@1592131924619/A-satellite-image-of-the-study-area.png')"}}></div>
-            {mockPins.map((pin, i) => (
-              <button 
-                key={pin.id} 
-                onClick={() => setSelectedPin(pin)}
-                className="absolute transform -translate-x-1/2 -translate-y-full focus:outline-none"
-                style={{ left: `${20 + i*20}%`, top: `${30 + (i%2)*40}%` }}
-                aria-label={`Pin ${pin.id}`}
-              >
-                <PinIcon status={pin.status} className={`w-10 h-10 drop-shadow-lg transition-transform hover:scale-125 ${selectedPin?.id === pin.id ? 'scale-125' : ''}`} />
-              </button>
-            ))}
+          <div ref={mapContainerRef} className="h-96 rounded-lg">
+            {/* Map will be rendered here by Leaflet */}
           </div>
         </div>
 
