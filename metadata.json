@@ -1,0 +1,8 @@
+{
+  "name": "FasalDrishti - Crop Insurance Analytics",
+  "description": "An AI-powered application for the Indian government's PMFBY crop insurance scheme, rebranded as FasalDrishti. It provides transparency for farmers and data-driven insights for authorities, featuring voice commands, image analysis, and real-time status updates.",
+  "requestFramePermissions": [
+    "microphone",
+    "geolocation"
+  ]
+}
